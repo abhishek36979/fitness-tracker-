@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - Fitness Tracker</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Fitness Tracker</h1>
+      <button class="btn btn-danger" onclick="logout()">Logout</button>
+    </header>
+
+    <div id="alert" class="error hidden"></div>
+
+    <!-- Profile Section -->
+    <div class="card">
+      <h2>Your Profile</h2>
+      <form id="profileForm">
+        <div class="grid-2">
+          <div class="form-group">
+            <label for="age">Age</label>
+            <input type="number" id="age" min="13" max="120" placeholder="25">
+          </div>
+          <div class="form-group">
+            <label for="gender">Gender</label>
+            <select id="gender">
+              <option value="">Select...</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="weight">Weight (kg)</label>
+            <input type="number" id="weight" step="0.1" placeholder="70">
+          </div>
+          <div class="form-group">
+            <label for="height">Height (cm)</label>
+            <input type="number" id="height" step="0.1" placeholder="175">
+          </div>
+          <div class="form-group">
+            <label for="activity">Activity Level</label>
+            <select id="activity">
+              <option value="sedentary">Sedentary</option>
+              <option value="light">Light</option>
+              <option value="moderate" selected>Moderate</option>
+              <option value="active">Active</option>
+              <option value="very_active">Very Active</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="diet">Diet Preference</label>
+            <select id="diet">
+              <option value="balanced" selected>Balanced</option>
+              <option value="vegetarian">Vegetarian</option>
+              <option value="vegan">Vegan</option>
+              <option value="high_protein">High Protein</option>
+              <option value="low_carb">Low Carb</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="goal">Fitness Goal</label>
+            <select id="goal">
+              <option value="lose_weight">Lose Weight</option>
+              <option value="maintain" selected>Maintain</option>
+              <option value="gain_muscle">Gain Muscle</option>
+            </select>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary">Save Profile</button>
+        <button type="button" class="btn btn-secondary" id="loadPlansBtn" style="margin-left: 0.5rem;">Get Recommendations</button>
+      </form>
+    </div>
+
+    <!-- Nutrition Summary -->
+    <div class="card hidden" id="nutritionCard">
+      <h2>Daily Nutrition Targets</h2>
+      <div class="stats" id="nutritionStats"></div>
+    </div>
+
+    <!-- Meal Plan -->
+    <div class="card hidden" id="mealCard">
+      <h2>Meal Suggestions</h2>
+      <div id="mealContent"></div>
+    </div>
+
+    <!-- Workout Plan -->
+    <div class="card hidden" id="workoutCard">
+      <h2>Workout Suggestions</h2>
+      <div id="workoutContent"></div>
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script>
+    requireAuth();
+
+    async function loadProfile() {
+      try {
+        const profile = await getProfile();
+        if (profile.age) document.getElementById("age").value = profile.age;
+        if (profile.gender) document.getElementById("gender").value = profile.gender;
+        if (profile.weight_kg) document.getElementById("weight").value = profile.weight_kg;
+        if (profile.height_cm) document.getElementById("height").value = profile.height_cm;
+        if (profile.activity_level) document.getElementById("activity").value = profile.activity_level;
+        if (profile.diet_preference) document.getElementById("diet").value = profile.diet_preference;
+        if (profile.fitness_goal) document.getElementById("goal").value = profile.fitness_goal;
+      } catch (err) {
+        showError("alert", err.message);
+      }
+    }
+
+    function renderNutrition(data) {
+      document.getElementById("nutritionStats").innerHTML = `
+        <div class="stat-box"><div class="value">${data.bmr}</div><div class="label">BMR (kcal)</div></div>
+        <div class="stat-box"><div class="value">${data.tdee}</div><div class="label">TDEE (kcal)</div></div>
+        <div class="stat-box"><div class="value">${data.target_calories}</div><div class="label">Target Calories</div></div>
+        <div class="stat-box"><div class="value">${data.protein_g}g</div><div class="label">Protein</div></div>
+        <div class="stat-box"><div class="value">${data.carbs_g}g</div><div class="label">Carbs</div></div>
+        <div class="stat-box"><div class="value">${data.fat_g}g</div><div class="label">Fat</div></div>
+      `;
+      document.getElementById("nutritionCard").classList.remove("hidden");
+    }
+
+    function renderMeals(data) {
+      const sections = ["breakfast", "lunch", "dinner", "snacks"];
+      let html = `<p class="note">${data.notes}</p>`;
+
+      sections.forEach((section) => {
+        const items = data[section];
+        if (!items || items.length === 0) return;
+
+        html += `<div class="meal-section"><h4>${section.charAt(0).toUpperCase() + section.slice(1)}</h4>`;
+        items.forEach((item) => {
+          html += `<div class="meal-item">
+            <span>${item.name}</span>
+            <span>${item.calories} kcal | P:${item.protein_g}g C:${item.carbs_g}g F:${item.fat_g}g</span>
+          </div>`;
+        });
+        html += `</div>`;
+      });
+
+      document.getElementById("mealContent").innerHTML = html;
+      document.getElementById("mealCard").classList.remove("hidden");
+    }
+
+    function renderWorkout(data) {
+      let html = `
+        <p class="note">${data.notes}</p>
+        <p><strong>Goal:</strong> ${formatGoal(data.goal)} |
+           <strong>Duration:</strong> ${data.duration_minutes} min |
+           <strong>Difficulty:</strong> ${data.difficulty} |
+           <strong>Est. burn:</strong> ${data.total_calories_burn_estimate} kcal</p>
+      `;
+
+      data.exercises.forEach((ex) => {
+        html += `<div class="exercise-item">
+          <span><strong>${ex.name}</strong> — ${ex.sets} sets × ${ex.reps}</span>
+          <span>~${ex.calories_burned_estimate} kcal</span>
+        </div>`;
+      });
+
+      document.getElementById("workoutContent").innerHTML = html;
+      document.getElementById("workoutCard").classList.remove("hidden");
+    }
+
+    async function loadRecommendations() {
+      hideError("alert");
+      try {
+        const [nutrition, meals, workout] = await Promise.all([
+          getNutrition(),
+          getMealPlan(),
+          getWorkoutPlan(),
+        ]);
+        renderNutrition(nutrition);
+        renderMeals(meals);
+        renderWorkout(workout);
+      } catch (err) {
+        showError("alert", err.message);
+      }
+    }
+
+    document.getElementById("profileForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      hideError("alert");
+
+      const profileData = {
+        age: parseInt(document.getElementById("age").value) || null,
+        gender: document.getElementById("gender").value || null,
+        weight_kg: parseFloat(document.getElementById("weight").value) || null,
+        height_cm: parseFloat(document.getElementById("height").value) || null,
+        activity_level: document.getElementById("activity").value,
+        diet_preference: document.getElementById("diet").value,
+        fitness_goal: document.getElementById("goal").value,
+      };
+
+      try {
+        await updateProfile(profileData);
+        await loadRecommendations();
+      } catch (err) {
+        showError("alert", err.message);
+      }
+    });
+
+    document.getElementById("loadPlansBtn").addEventListener("click", loadRecommendations);
+
+    loadProfile();
+  </script>
+</body>
+</html>

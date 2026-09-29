@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register - Fitness Tracker</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Fitness Tracker</h1>
+    </header>
+
+    <div class="card" style="max-width: 420px; margin: 0 auto;">
+      <h2>Create Account</h2>
+      <div id="error" class="error hidden"></div>
+      <div id="success" class="success hidden"></div>
+
+      <form id="registerForm">
+        <div class="form-group">
+          <label for="fullName">Full Name</label>
+          <input type="text" id="fullName" placeholder="John Doe">
+        </div>
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input type="email" id="email" required placeholder="you@example.com">
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" required minlength="6" placeholder="Min 6 characters">
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%;">Register</button>
+      </form>
+
+      <p class="auth-links">
+        Already have an account? <a href="login.html">Login</a>
+      </p>
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script>
+    document.getElementById("registerForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      hideError("error");
+      document.getElementById("success").classList.add("hidden");
+
+      const fullName = document.getElementById("fullName").value;
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+
+      try {
+        await register(email, password, fullName);
+        document.getElementById("success").textContent = "Account created! Redirecting to login...";
+        document.getElementById("success").classList.remove("hidden");
+        setTimeout(() => { window.location.href = "login.html"; }, 1500);
+      } catch (err) {
+        showError("error", err.message);
+      }
+    });
+  </script>
+</body>
+</html>
